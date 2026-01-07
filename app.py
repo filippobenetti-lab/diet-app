@@ -5,14 +5,13 @@ import altair as alt
 # --- CONFIGURAZIONE PAGINA ---
 st.set_page_config(page_title="MyDiet Assistant", page_icon="🥗", layout="centered")
 
-# --- CSS PERSONALIZZATO (Per renderla più "App") ---
+# --- CSS PERSONALIZZATO ---
 st.markdown("""
 <style>
-    /* Nasconde menu standard di Streamlit */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     
-    /* Stile per le Card dei Pasti */
+    /* Card principale per i pasti */
     .meal-card {
         background-color: #f0f2f6;
         border-radius: 10px;
@@ -31,6 +30,15 @@ st.markdown("""
         color: #424242;
         font-size: 0.95em;
     }
+
+    /* Stile per i risultati di ricerca */
+    .search-hit {
+        background-color: #e8f5e9; 
+        padding: 10px; 
+        border-radius: 8px; 
+        margin-bottom: 5px; 
+        border: 1px solid #c8e6c9;
+    }
     
     /* Titoli colorati */
     h1 { color: #2E7D32; }
@@ -39,7 +47,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- DATABASE DATI (Completo dal PDF) ---
+# --- DATABASE DATI ---
 db_alimenti = {
     "Latte e Derivati": {
         "Latte intero": 62, "Latte parz. scremato": 41, "Yogurt magro": 37, "Yogurt intero": 64,
@@ -235,7 +243,7 @@ menu_settimanali = {
 st.title("🥗 MyDiet Assistant")
 st.markdown("**Benvenuto nel tuo assistente nutrizionale personale.**")
 
-# --- NAVIGAZIONE A TABS (PIÙ MODERNA) ---
+# --- NAVIGAZIONE A TABS ---
 tab1, tab2, tab3, tab4 = st.tabs(["📅 Menu Settimanale", "🔄 Calcola Sostituzione", "🔍 Cerca Piatto", "📊 Grafici Nutrienti"])
 
 # --- TAB 1: MENU ---
@@ -250,16 +258,10 @@ with tab1:
     
     if giorno in menu_settimanali[settimana]:
         pasti = menu_settimanali[settimana][giorno]
-        
-        # Icone per i pasti
-        icons = {
-            "Colazione": "☕", "Spuntino": "🍎", "Pranzo": "🍝", 
-            "Merenda": "🥨", "Cena": "🌙"
-        }
+        icons = {"Colazione": "☕", "Spuntino": "🍎", "Pranzo": "🍝", "Merenda": "🥨", "Cena": "🌙"}
         
         for pasto, descrizione in pasti.items():
             icona = icons.get(pasto, "🍽️")
-            # Uso HTML personalizzato per creare le "Card"
             st.markdown(f"""
             <div class="meal-card">
                 <div class="meal-title">{icona} {pasto}</div>
@@ -282,7 +284,6 @@ with tab2:
         
     with c2:
         st.markdown("### 🟢 Cibo da mettere")
-        # Flattening list per il selectbox di destinazione
         tutti_cibi = [c for cat in db_alimenti.values() for c in cat.keys()]
         cibo_sostituto = st.selectbox("Nuovo Alimento", tutti_cibi, index=0)
         
@@ -309,36 +310,61 @@ with tab2:
         else:
             st.warning(f"Attenzione, alimento più calorico. Riduci la porzione a {int(quantita_nuova)}g.")
 
-# --- TAB 3: RICERCA ---
+# --- TAB 3: RICERCA (AGGIORNATA) ---
 with tab3:
     st.markdown("### 🔎 Trova il tuo piatto preferito")
     search_query = st.text_input("Cosa vuoi mangiare?", placeholder="es. Pizza, Salmone, Pasta...")
     
     if search_query:
-        found_count = 0
+        global_found = False
+        
+        # Iterazione su Settimane
         for week_name, week_data in menu_settimanali.items():
+            # Iterazione su Giorni
             for day_name, day_data in week_data.items():
+                
+                # Cerco se nel giorno corrente c'è almeno un match
+                found_meals_in_day = {}
                 for meal_name, meal_desc in day_data.items():
                     if search_query.lower() in meal_desc.lower():
-                        found_count += 1
+                        found_meals_in_day[meal_name] = meal_desc
+                
+                # Se ho trovato qualcosa in questo giorno
+                if found_meals_in_day:
+                    global_found = True
+                    st.divider()
+                    st.markdown(f"#### 📅 {week_name} - {day_name}")
+                    
+                    # 1. Mostro i risultati specifici trovati
+                    for m_name, m_desc in found_meals_in_day.items():
+                        # Evidenzio la parola cercata
+                        highlighted_desc = m_desc.replace(search_query, f"**{search_query}**").replace(search_query.lower(), f"**{search_query.lower()}**").replace(search_query.capitalize(), f"**{search_query.capitalize()}**")
+                        
                         st.markdown(f"""
-                        <div style="background-color: #e8f5e9; padding: 10px; border-radius: 5px; margin-bottom: 5px; border-left: 3px solid #2e7d32;">
-                            <b>{week_name} - {day_name}</b> <span style="color:#666">({meal_name})</span><br>
-                            {meal_desc.replace(search_query, f"<mark>{search_query}</mark>").replace(search_query.capitalize(), f"<mark>{search_query.capitalize()}</mark>")}
+                        <div class="search-hit">
+                            <b>{m_name}:</b> {highlighted_desc}
                         </div>
                         """, unsafe_allow_html=True)
-        if found_count == 0:
-            st.warning("Nessun risultato trovato.")
+                    
+                    # 2. Mostro il pulsante (Expander) per vedere TUTTO il menu di quel giorno
+                    with st.expander(f"📖 Apri menu completo di {day_name}"):
+                        for meal, desc in day_data.items():
+                            if meal in found_meals_in_day:
+                                # Evidenzia il pasto trovato anche qui dentro
+                                st.markdown(f"✅ **{meal}**: {desc}")
+                            else:
+                                st.markdown(f"🔹 **{meal}**: {desc}")
+
+        if not global_found:
+            st.warning("Nessun piatto trovato con questo nome.")
 
 # --- TAB 4: GRAFICI ---
 with tab4:
     st.markdown("### 📊 Densità Calorica Alimenti (Kcal/100g)")
     cat_grafico = st.selectbox("Quale categoria vuoi analizzare?", list(db_alimenti.keys()))
     
-    # Preparazione Dati per Altair
     data_chart = pd.DataFrame(list(db_alimenti[cat_grafico].items()), columns=["Alimento", "Kcal"])
     
-    # Creazione Grafico
     chart = alt.Chart(data_chart).mark_bar().encode(
         x=alt.X('Alimento', sort='-y'),
         y='Kcal',
