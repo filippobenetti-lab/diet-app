@@ -1,20 +1,56 @@
 import streamlit as st
 import pandas as pd
+import altair as alt
 
-# --- CONFIGURAZIONE DATI DAL PDF ---
+# --- CONFIGURAZIONE PAGINA ---
+st.set_page_config(page_title="MyDiet Assistant", page_icon="🥗", layout="centered")
 
-# 1. DATABASE CALORIE (Valori per 100g estratti dal documento - Pagg. 32-36)
+# --- CSS PERSONALIZZATO (Per renderla più "App") ---
+st.markdown("""
+<style>
+    /* Nasconde menu standard di Streamlit */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    
+    /* Stile per le Card dei Pasti */
+    .meal-card {
+        background-color: #f0f2f6;
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 10px;
+        border-left: 5px solid #4CAF50;
+        box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+    }
+    .meal-title {
+        color: #2e7d32;
+        font-weight: bold;
+        font-size: 1.1em;
+        margin-bottom: 5px;
+    }
+    .meal-content {
+        color: #424242;
+        font-size: 0.95em;
+    }
+    
+    /* Titoli colorati */
+    h1 { color: #2E7D32; }
+    h2 { color: #388E3C; }
+    h3 { color: #43A047; }
+</style>
+""", unsafe_allow_html=True)
+
+# --- DATABASE DATI (Completo dal PDF) ---
 db_alimenti = {
     "Latte e Derivati": {
         "Latte intero": 62, "Latte parz. scremato": 41, "Yogurt magro": 37, "Yogurt intero": 64,
         "Mozzarella": 244, "Parmigiano": 374, "Stracchino": 300, "Ricotta": 173, 
-        "Gorgonzola": 358, "Emmenthal": 404, "Asiago": 356, "Squacquerone": 250 # stima standard
+        "Gorgonzola": 358, "Emmenthal": 404, "Asiago": 356, "Squacquerone": 250
     },
     "Carni": {
         "Manzo magro": 129, "Vitello magro": 113, "Pollo (petto)": 97, "Pollo intero": 175,
         "Tacchino": 134, "Maiale magro": 131, "Cavallo": 111, 
         "Prosciutto crudo": 370, "Prosciutto cotto": 412, "Bresaola/Crudo magro": 218,
-        "Speck": 300, "Salame nostrano": 463, "Salsiccia": 334, "Hamburger manzo": 250 # stima
+        "Speck": 300, "Salame nostrano": 463, "Salsiccia": 334, "Hamburger manzo": 250
     },
     "Pesce": {
         "Merluzzo": 71, "Sogliola": 86, "Tonno fresco": 158, "Tonno scatola (sgocc.)": 190,
@@ -39,7 +75,6 @@ db_alimenti = {
     }
 }
 
-# 2. MENU SETTIMANALI COMPLETI (A.B., A.B.1, A.B.2)
 menu_settimanali = {
     "Settimana A.B.": {
         "Lunedì": {
@@ -196,74 +231,128 @@ menu_settimanali = {
     }
 }
 
-# --- INTERFACCIA STREAMLIT ---
+# --- HEADER APP ---
+st.title("🥗 MyDiet Assistant")
+st.markdown("**Benvenuto nel tuo assistente nutrizionale personale.**")
 
-st.title("🍽️ MyDiet Assistant")
-st.markdown("""
-Questa applicazione ti aiuta a consultare il piano alimentare completo e a calcolare le sostituzioni basandosi sul principio di **equivalenza calorica**.
-""")
+# --- NAVIGAZIONE A TABS (PIÙ MODERNA) ---
+tab1, tab2, tab3, tab4 = st.tabs(["📅 Menu Settimanale", "🔄 Calcola Sostituzione", "🔍 Cerca Piatto", "📊 Grafici Nutrienti"])
 
-st.sidebar.header("Navigazione")
-scelta_funzione = st.sidebar.radio("Cosa vuoi fare?", ["Consulta Menu", "Calcolatore Sostituzioni", "Tabelle Riferimento"])
-
-# --- FUNZIONE 1: CONSULTA MENU ---
-if scelta_funzione == "Consulta Menu":
-    st.header("📅 Piano Settimanale")
+# --- TAB 1: MENU ---
+with tab1:
+    col_sel1, col_sel2 = st.columns(2)
+    with col_sel1:
+        settimana = st.selectbox("Seleziona Settimana", list(menu_settimanali.keys()))
+    with col_sel2:
+        giorno = st.selectbox("Seleziona Giorno", ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"])
     
-    settimana = st.selectbox("Seleziona la settimana:", list(menu_settimanali.keys()))
-    giorno = st.selectbox("Seleziona il giorno:", ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"])
+    st.divider()
     
     if giorno in menu_settimanali[settimana]:
         pasti = menu_settimanali[settimana][giorno]
+        
+        # Icone per i pasti
+        icons = {
+            "Colazione": "☕", "Spuntino": "🍎", "Pranzo": "🍝", 
+            "Merenda": "🥨", "Cena": "🌙"
+        }
+        
         for pasto, descrizione in pasti.items():
-            st.subheader(pasto)
-            st.info(descrizione)
+            icona = icons.get(pasto, "🍽️")
+            # Uso HTML personalizzato per creare le "Card"
+            st.markdown(f"""
+            <div class="meal-card">
+                <div class="meal-title">{icona} {pasto}</div>
+                <div class="meal-content">{descrizione}</div>
+            </div>
+            """, unsafe_allow_html=True)
     else:
-        st.warning("Giorno non trovato.")
+        st.error("Dati non disponibili per questo giorno.")
 
-# --- FUNZIONE 2: CALCOLATORE SOSTITUZIONI ---
-elif scelta_funzione == "Calcolatore Sostituzioni":
-    st.header("🔄 Calcolatore Isocalorico")
-    st.markdown("Calcola quanto mangiare di un cibo alternativo per mantenere le stesse calorie.")
+# --- TAB 2: CALCOLATORE ---
+with tab2:
+    st.info("💡 **Principio Isocalorico:** Sostituisci gli alimenti mantenendo le stesse calorie.")
     
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        categoria = st.selectbox("Categoria Alimento:", list(db_alimenti.keys()))
-        cibo_originale = st.selectbox("Cibo previsto dal menu:", list(db_alimenti[categoria].keys()))
-        quantita_originale = st.number_input("Quantità prevista (grammi):", min_value=10, value=100, step=10)
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown("### 🔴 Cibo da togliere")
+        categoria = st.selectbox("Categoria", list(db_alimenti.keys()))
+        cibo_originale = st.selectbox("Alimento", list(db_alimenti[categoria].keys()))
+        quantita_originale = st.number_input("Grammi previsti", min_value=10, value=100, step=10)
         
-    with col2:
-        st.markdown("⬇️ **Voglio sostituirlo con:**")
-        cibo_sostituto = st.selectbox("Nuovo cibo:", [c for cat in db_alimenti.values() for c in cat.keys()])
+    with c2:
+        st.markdown("### 🟢 Cibo da mettere")
+        # Flattening list per il selectbox di destinazione
+        tutti_cibi = [c for cat in db_alimenti.values() for c in cat.keys()]
+        cibo_sostituto = st.selectbox("Nuovo Alimento", tutti_cibi, index=0)
         
-    # Logica di calcolo
-    kcal_orig_per_100 = 0
-    kcal_new_per_100 = 0
-    
+    # Calcolo
+    kcal_orig = 0
+    kcal_new = 0
     for cat in db_alimenti.values():
-        if cibo_originale in cat: kcal_orig_per_100 = cat[cibo_originale]
-        if cibo_sostituto in cat: kcal_new_per_100 = cat[cibo_sostituto]
-            
-    if st.button("Calcola Sostituzione"):
-        calorie_totali = (quantita_originale * kcal_orig_per_100) / 100
-        quantita_nuova = (calorie_totali * 100) / kcal_new_per_100
-        
-        st.success(f"Per sostituire **{quantita_originale}g di {cibo_originale}**...")
-        st.metric(label=f"Devi mangiare questa quantità di {cibo_sostituto}:", value=f"{int(quantita_nuova)} gr")
-        st.caption(f"Kcal originali: {int(calorie_totali)} | Kcal nuovo cibo/100g: {kcal_new_per_100}")
-
-# --- FUNZIONE 3: TABELLE RIFERIMENTO ---
-elif scelta_funzione == "Tabelle Riferimento":
-    st.header("📋 Equivalenze Rapide")
-    st.table(pd.DataFrame([
-        {"Alimento Base": "30g Pane Comune", "Equivale a": "25g Pasta o Riso"},
-        {"Alimento Base": "100g Patate", "Equivale a": "30g Pane"},
-        {"Alimento Base": "100g Carne Vitello", "Equivale a": "150g Pesce o 2 Uova"},
-        {"Alimento Base": "1 Mela", "Equivale a": "1 Arancia o 140g Pompelmo"},
-        {"Alimento Base": "1 Cucchiaio Olio", "Equivale a": "12g circa"}
-    ]))
+        if cibo_originale in cat: kcal_orig = cat[cibo_originale]
+        if cibo_sostituto in cat: kcal_new = cat[cibo_sostituto]
     
-    st.header("Database Calorie (Kcal/100g)")
-    df_db = pd.DataFrame([(k, v) for cat in db_alimenti.values() for k, v in cat.items()], columns=["Alimento", "Kcal/100g"])
-    st.dataframe(df_db)
+    if st.button("🧮 Calcola Equivalenza", type="primary", use_container_width=True):
+        kcal_totali = (quantita_originale * kcal_orig) / 100
+        quantita_nuova = (kcal_totali * 100) / kcal_new
+        
+        st.divider()
+        res_col1, res_col2 = st.columns(2)
+        with res_col1:
+             st.metric(label="Calorie Totali", value=f"{int(kcal_totali)} kcal")
+        with res_col2:
+             st.metric(label=f"Nuova quantità di {cibo_sostituto}", value=f"{int(quantita_nuova)} g", delta=f"{int(quantita_nuova - quantita_originale)}g diff.")
+             
+        if quantita_nuova > quantita_originale:
+            st.success(f"Puoi mangiare di più! 🎉 ({int(quantita_nuova)}g invece di {quantita_originale}g)")
+        else:
+            st.warning(f"Attenzione, alimento più calorico. Riduci la porzione a {int(quantita_nuova)}g.")
+
+# --- TAB 3: RICERCA ---
+with tab3:
+    st.markdown("### 🔎 Trova il tuo piatto preferito")
+    search_query = st.text_input("Cosa vuoi mangiare?", placeholder="es. Pizza, Salmone, Pasta...")
+    
+    if search_query:
+        found_count = 0
+        for week_name, week_data in menu_settimanali.items():
+            for day_name, day_data in week_data.items():
+                for meal_name, meal_desc in day_data.items():
+                    if search_query.lower() in meal_desc.lower():
+                        found_count += 1
+                        st.markdown(f"""
+                        <div style="background-color: #e8f5e9; padding: 10px; border-radius: 5px; margin-bottom: 5px; border-left: 3px solid #2e7d32;">
+                            <b>{week_name} - {day_name}</b> <span style="color:#666">({meal_name})</span><br>
+                            {meal_desc.replace(search_query, f"<mark>{search_query}</mark>").replace(search_query.capitalize(), f"<mark>{search_query.capitalize()}</mark>")}
+                        </div>
+                        """, unsafe_allow_html=True)
+        if found_count == 0:
+            st.warning("Nessun risultato trovato.")
+
+# --- TAB 4: GRAFICI ---
+with tab4:
+    st.markdown("### 📊 Densità Calorica Alimenti (Kcal/100g)")
+    cat_grafico = st.selectbox("Quale categoria vuoi analizzare?", list(db_alimenti.keys()))
+    
+    # Preparazione Dati per Altair
+    data_chart = pd.DataFrame(list(db_alimenti[cat_grafico].items()), columns=["Alimento", "Kcal"])
+    
+    # Creazione Grafico
+    chart = alt.Chart(data_chart).mark_bar().encode(
+        x=alt.X('Alimento', sort='-y'),
+        y='Kcal',
+        color=alt.Color('Kcal', scale=alt.Scale(scheme='greens')),
+        tooltip=['Alimento', 'Kcal']
+    ).properties(height=300)
+    
+    st.altair_chart(chart, use_container_width=True)
+    
+    st.markdown("#### Equivalenze Rapide")
+    col_eq1, col_eq2 = st.columns(2)
+    with col_eq1:
+        st.info("🍞 **30g Pane** = 25g Pasta")
+        st.info("🥔 **100g Patate** = 30g Pane")
+    with col_eq2:
+        st.info("🥩 **100g Vitello** = 150g Pesce")
+        st.info("🍎 **1 Mela** = 1 Arancia")
