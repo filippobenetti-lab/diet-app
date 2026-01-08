@@ -12,29 +12,51 @@ st.markdown("""
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     
+    /* Stile Card */
     .meal-card {
         border-radius: 12px;
         padding: 15px;
         margin-bottom: 12px;
         box-shadow: 2px 2px 8px rgba(0,0,0,0.08);
         border-left: 6px solid #ccc;
+        background-color: white;
     }
     
-    /* Colori Pasti */
+    /* Colori Specifici per Pasto */
     .type-colazione { background-color: #FFF3E0; border-left-color: #FF9800; }
-    .type-colazione .meal-title { color: #EF6C00; }
-    
     .type-spuntino { background-color: #E1F5FE; border-left-color: #039BE5; }
-    .type-spuntino .meal-title { color: #0277BD; }
-    
     .type-pranzo { background-color: #E8F5E9; border-left-color: #43A047; }
-    .type-pranzo .meal-title { color: #2E7D32; }
-    
     .type-cena { background-color: #E8EAF6; border-left-color: #3F51B5; }
-    .type-cena .meal-title { color: #283593; }
 
-    .meal-title { font-weight: 800; font-size: 1.2em; text-transform: uppercase; margin-bottom: 5px; }
-    .meal-content { color: #424242; font-size: 1.0em; line-height: 1.5; }
+    /* Tipografia */
+    .meal-header { 
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center; 
+        margin-bottom: 8px;
+    }
+    .meal-title { 
+        font-weight: 800; 
+        font-size: 1.1em; 
+        text-transform: uppercase; 
+        color: #333;
+    }
+    .meal-content { 
+        color: #424242; 
+        font-size: 0.95em; 
+        line-height: 1.5; 
+    }
+    
+    /* Badge Calorie */
+    .kcal-badge {
+        background-color: rgba(255,255,255,0.6);
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 0.8em;
+        font-weight: bold;
+        color: #555;
+        border: 1px solid rgba(0,0,0,0.1);
+    }
     
     /* Totale Giornaliero */
     .daily-total {
@@ -47,21 +69,10 @@ st.markdown("""
         box-shadow: 0 4px 10px rgba(0,0,0,0.2);
     }
     .total-kcal { font-size: 2.5em; font-weight: bold; color: #4CAF50; }
-    .total-subtitle { font-size: 0.9em; opacity: 0.8; }
-    
-    .kcal-badge {
-        background-color: rgba(0,0,0,0.05);
-        padding: 2px 8px;
-        border-radius: 10px;
-        font-size: 0.8em;
-        font-weight: bold;
-        float: right;
-        color: #555;
-    }
 </style>
 """, unsafe_allow_html=True)
 
-# --- DATABASE DATI ---
+# --- DATABASE DATI (AGGIORNATO CON VALORI PDF PAG 32-36) ---
 db_alimenti = {
     "Latte e Derivati": {
         "Latte intero": {"kcal": 62, "prot": 3.3, "carb": 4.7},
@@ -74,10 +85,9 @@ db_alimenti = {
         "Ricotta": {"kcal": 173, "prot": 11, "carb": 3.5},
         "Gorgonzola": {"kcal": 358, "prot": 19, "carb": 0.0},
         "Emmenthal": {"kcal": 404, "prot": 29, "carb": 0.0},
-        "Asiago": {"kcal": 356, "prot": 24, "carb": 0.5},
-        "Squacquerone": {"kcal": 250, "prot": 13, "carb": 2.0}
+        "Asiago": {"kcal": 356, "prot": 24, "carb": 0.5}
     },
-    "Carni": {
+    "Carni e Salumi": {
         "Manzo magro": {"kcal": 129, "prot": 21, "carb": 0},
         "Vitello magro": {"kcal": 113, "prot": 20, "carb": 0},
         "Pollo (petto)": {"kcal": 97, "prot": 23, "carb": 0},
@@ -85,23 +95,24 @@ db_alimenti = {
         "Tacchino": {"kcal": 134, "prot": 24, "carb": 0},
         "Maiale magro": {"kcal": 131, "prot": 20, "carb": 0},
         "Cavallo": {"kcal": 111, "prot": 21, "carb": 0.5},
-        "Prosciutto crudo": {"kcal": 218, "prot": 26, "carb": 0},
-        "Prosciutto cotto": {"kcal": 215, "prot": 19, "carb": 0.9},
+        "Prosciutto crudo": {"kcal": 370, "prot": 26, "carb": 0}, # Corretto da PDF pag 33
+        "Prosciutto crudo magro": {"kcal": 218, "prot": 28, "carb": 0}, # Corretto da PDF pag 33
+        "Prosciutto cotto": {"kcal": 412, "prot": 19, "carb": 0.9}, # Corretto da PDF pag 33
         "Bresaola": {"kcal": 151, "prot": 32, "carb": 0},
         "Speck": {"kcal": 300, "prot": 28, "carb": 0.5},
-        "Salame nostrano": {"kcal": 463, "prot": 20, "carb": 1},
+        "Salame": {"kcal": 463, "prot": 20, "carb": 1}, # Corretto da PDF
         "Salsiccia": {"kcal": 334, "prot": 14, "carb": 0},
-        "Hamburger manzo": {"kcal": 250, "prot": 18, "carb": 0}
+        "Wurstel": {"kcal": 343, "prot": 12, "carb": 0}
     },
     "Pesce": {
         "Merluzzo": {"kcal": 71, "prot": 17, "carb": 0},
         "Sogliola": {"kcal": 86, "prot": 16, "carb": 0},
         "Tonno fresco": {"kcal": 158, "prot": 21, "carb": 0},
         "Tonno scatola (sgocc.)": {"kcal": 190, "prot": 25, "carb": 0},
-        "Orata/Branzino": {"kcal": 82, "prot": 18, "carb": 0},
-        "Salmone": {"kcal": 185, "prot": 19, "carb": 0},
+        "Orata/Branzino (Spigola)": {"kcal": 82, "prot": 18, "carb": 0},
+        "Salmone": {"kcal": 185, "prot": 19, "carb": 0}, # Valore medio
         "Trota": {"kcal": 96, "prot": 19, "carb": 0},
-        "Nasello": {"kcal": 75, "prot": 16, "carb": 0},
+        "Nasello": {"kcal": 75, "prot": 16, "carb": 0}, # Valore medio
         "Gamberi": {"kcal": 71, "prot": 13, "carb": 2.9}
     },
     "Cereali e Carboidrati": {
@@ -113,7 +124,8 @@ db_alimenti = {
         "Crackers": {"kcal": 464, "prot": 10, "carb": 75},
         "Biscotti Oro Saiwa": {"kcal": 430, "prot": 7, "carb": 77},
         "Cereali Special K": {"kcal": 370, "prot": 14, "carb": 75},
-        "Gnocchi": {"kcal": 160, "prot": 5, "carb": 36}
+        "Gnocchi": {"kcal": 160, "prot": 5, "carb": 36},
+        "Pizza Margherita": {"kcal": 270, "prot": 10, "carb": 30} # Stima per 100g
     },
     "Verdure e Legumi": {
         "Insalata/Lattuga": {"kcal": 20, "prot": 1.5, "carb": 2},
@@ -127,18 +139,18 @@ db_alimenti = {
         "Carote": {"kcal": 35, "prot": 1, "carb": 7},
         "Finocchi": {"kcal": 31, "prot": 1, "carb": 1},
         "Cavolfiore": {"kcal": 25, "prot": 3, "carb": 2.5},
-        "Broccoli": {"kcal": 27, "prot": 3, "carb": 1.5},
-        "Peperoni": {"kcal": 22, "prot": 1, "carb": 4}
+        "Broccoli": {"kcal": 28, "prot": 3, "carb": 1.5},
+        "Peperoni": {"kcal": 23, "prot": 1, "carb": 4}
     },
     "Frutta e Dolci": {
         "Mela": {"kcal": 48, "prot": 0.2, "carb": 11},
         "Banana": {"kcal": 70, "prot": 1, "carb": 16},
-        "Arancia": {"kcal": 40, "prot": 0.7, "carb": 8},
+        "Arancia": {"kcal": 36, "prot": 0.7, "carb": 8},
         "Marmellata": {"kcal": 250, "prot": 0.5, "carb": 60},
         "Miele": {"kcal": 304, "prot": 0.6, "carb": 80},
-        "Cioccolata spalmabile": {"kcal": 530, "prot": 6, "carb": 55},
-        "Tiramisù": {"kcal": 367, "prot": 6, "carb": 35},
-        "Crostata": {"kcal": 350, "prot": 5, "carb": 55},
+        "Cioccolata spalmabile": {"kcal": 537, "prot": 6, "carb": 55}, # PDF pag 36
+        "Tiramisù": {"kcal": 333, "prot": 6, "carb": 35}, # PDF pag 36
+        "Crostata": {"kcal": 350, "prot": 5, "carb": 55}, # Stima media
         "Barretta cereali": {"kcal": 400, "prot": 6, "carb": 65}
     },
     "Condimenti": {
@@ -190,23 +202,23 @@ def normalizza_key(k):
         "fette biscottate": "Fette biscottate", "biscotti": "Biscotti Oro Saiwa",
         "pollo": "Pollo (petto)", "tacchino": "Tacchino", "manzo": "Manzo magro",
         "vitello": "Vitello magro", "maiale": "Maiale magro", "merluzzo": "Merluzzo",
-        "orata": "Orata/Branzino", "branzino": "Orata/Branzino", "salmone": "Salmone",
+        "orata": "Orata/Branzino (Spigola)", "branzino": "Orata/Branzino (Spigola)", "salmone": "Salmone",
         "piselli": "Piselli freschi", "fagioli": "Fagioli secchi", "spinaci": "Spinaci",
         "carote": "Carote", "zucchine": "Zucchine", "cavolfiore": "Cavolfiore",
         "cioccolata": "Cioccolata spalmabile", "marmellata": "Marmellata",
-        "yogurt": "Yogurt magro", "cereali": "Cereali Special K"
+        "yogurt": "Yogurt magro", "cereali": "Cereali Special K",
+        "salame": "Salame", "salsiccia": "Salsiccia", "pizza": "Pizza Margherita",
+        "gnocchi": "Gnocchi"
     }
     for key, val in mapping.items():
         if key in k: return val
     return None
 
 def stima_calorie(descrizione_pasto):
-    """Estima le calorie da una stringa di testo"""
+    """Estima le calorie da una stringa di testo con regole PDF pag 31"""
     tot_kcal = 0
-    # Cerca pattern tipo: 120g, 4 cuc., 1 pz
     items = descrizione_pasto.split(',')
     
-    # Flattening DB per ricerca
     flat_db = {}
     for cat in db_alimenti.values():
         for k, v in cat.items():
@@ -221,28 +233,36 @@ def stima_calorie(descrizione_pasto):
         if match_g:
             grams = int(match_g.group(1))
         
-        # 2. Cerca Cucchiai (es. 2 cuc) -> approx 10g
-        match_cuc = re.search(r'(\d+)\s*cuc', item)
-        if match_cuc:
-            grams = int(match_cuc.group(1)) * 10
+        # 2. Cerca Cucchiai/Cucchiaini (Regole PDF pag 31)
+        # Cucchiaio Olio = 12g, Cucchiaino = 6g
+        if "cuc." in item or "cucchia" in item:
+            qta_match = re.search(r'(\d+)', item)
+            qta = int(qta_match.group(1)) if qta_match else 1
             
-        # 3. Cerca Pezzi (es. 1 pz) -> approx standard
-        match_pz = re.search(r'(\d+)\s*pz', item)
+            if "olio" in item.lower() and "cuc.ni" in item.lower(): grams = qta * 6
+            elif "olio" in item.lower(): grams = qta * 12
+            elif "parmigiano" in item.lower(): grams = qta * 10
+            elif "miele" in item.lower() and "cuc.ni" in item.lower(): grams = qta * 6 # PDF pag 31
+            elif "marmellata" in item.lower() and "cuc.ni" in item.lower(): grams = qta * 6
+            elif "marmellata" in item.lower(): grams = qta * 15
+            else: grams = qta * 10 # fallback
+
+        # 3. Cerca Pezzi/Fette
+        match_pz = re.search(r'(\d+)\s*(pz|fet)', item)
         if match_pz:
             qta = int(match_pz.group(1))
             if "biscotti" in item.lower(): grams = qta * 6
-            elif "fette" in item.lower() and "biscottate" in item.lower(): grams = qta * 8
-            elif "fette" in item.lower(): grams = qta * 15 # affettati
-            elif "cracker" in item.lower(): grams = qta * 25 # pacchetto
-            elif "banana" in item.lower(): grams = qta * 150
-            elif "mela" in item.lower(): grams = qta * 180
-            elif "yogurt" in item.lower(): grams = qta * 125
-            else: grams = qta * 50 # fallback generico
+            elif "fette biscottate" in item.lower(): grams = qta * 8
+            elif "prosciutto" in item.lower() or "speck" in item.lower() or "salame" in item.lower(): grams = qta * 15 
+            elif "cracker" in item.lower(): grams = qta * 25 
+            elif "banana" in item.lower(): grams = 110 # PDF pag 31
+            elif "mela" in item.lower(): grams = 160 # PDF pag 31
+            elif "arancia" in item.lower(): grams = 140 # PDF pag 31
+            elif "yogurt" in item.lower(): grams = 125
+            else: grams = qta * 50 
             
-        # Se non ho trovato quantità, salto (oppure stima standard 100g se ingrediente principale)
         if grams == 0 and ("pasta" in item.lower() or "riso" in item.lower()): grams = 80
         
-        # Cerca nel DB
         found_key = normalizza_key(item)
         if found_key and found_key in flat_db:
              kcal_100 = flat_db[found_key]['kcal']
@@ -277,36 +297,39 @@ with tab1:
         }
         
         for pasto, descrizione in pasti.items():
-            # Stima calorie pasto
             kcal_pasto = stima_calorie(descrizione)
             totale_giornaliero += kcal_pasto
             
             icona = icons.get(pasto, "🍽️")
             
+            # CSS Class assignment
             css_class = "meal-card"
             if "Colazione" in pasto: css_class += " type-colazione"
             elif "Spuntino" in pasto or "Merenda" in pasto: css_class += " type-spuntino"
             elif "Pranzo" in pasto: css_class += " type-pranzo"
             elif "Cena" in pasto: css_class += " type-cena"
             
-            # Badge Calorie (se > 0)
-            badge_html = f'<span class="kcal-badge">{int(kcal_pasto)} kcal</span>' if kcal_pasto > 0 else ""
+            badge_html = f'<div class="kcal-badge">{int(kcal_pasto)} kcal</div>' if kcal_pasto > 0 else ""
             
-            st.markdown(f"""
+            # COSTRUZIONE HTML SICURA
+            html_content = f"""
             <div class="{css_class}">
-                {badge_html}
-                <div class="meal-title">{icona} {pasto}</div>
+                <div class="meal-header">
+                    <span class="meal-title">{icona} {pasto}</span>
+                    {badge_html}
+                </div>
                 <div class="meal-content">{descrizione}</div>
             </div>
-            """, unsafe_allow_html=True)
+            """
+            st.markdown(html_content, unsafe_allow_html=True)
             
         # BOX TOTALE
         st.markdown(f"""
         <div class="daily-total">
-            <div class="total-subtitle">TOTALE GIORNALIERO STIMATO</div>
+            <div style="font-size: 0.9em; opacity: 0.8;">TOTALE GIORNALIERO STIMATO</div>
             <div class="total-kcal">{int(totale_giornaliero)} Kcal</div>
             <div style="margin-top:10px; font-size:0.8em; color:#ccc;">
-                *Calcolo approssimativo basato sulle quantità rilevate nel testo.
+                [cite_start]*Calcolo basato su pesi e conversioni del PDF (es. 1 cucchiaio olio = 12g) [cite: 392-393]
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -321,6 +344,7 @@ with tab2:
     c1, c2 = st.columns(2)
     with c1:
         st.markdown("### 🔴 Togli")
+        # Chiavi univoche per evitare DuplicateElementId
         categoria = st.selectbox("Categoria", list(db_alimenti.keys()), key="cat_calc")
         cibo_originale = st.selectbox("Alimento", list(db_alimenti[categoria].keys()), key="alimento_orig")
         quantita_originale = st.number_input("Grammi", min_value=10, value=100, step=10, key="q_orig")
@@ -414,6 +438,7 @@ with tab3:
 # --- TAB 4: GRAFICI ---
 with tab4:
     st.markdown("### 📊 Analisi Nutrizionale")
+    # Chiave univoca per evitare errori
     cat_grafico = st.selectbox("Categoria", list(db_alimenti.keys()), key="cat_graf")
     
     raw_data = []
