@@ -97,4 +97,12 @@ db_alimenti = {
         "Asiago": {"kcal": 356, "prot": 24, "carb": 0.5},
         "Squacquerone": {"kcal": 250, "prot": 13, "carb": 2.0}
     },
-    "
+    "Carni": {
+        "Manzo magro": {"kcal": 129, "prot": 21, "carb": 0},
+        "Vitello magro": {"kcal": 113, "prot": 20, "carb": 0},
+        "Pollo (petto)": {"kcal": 97, "prot": 23, "carb": 0},
+        "Pollo intero": {"kcal": 175, "prot": 18, "carb": 0},
+        "Tacchino": {"kcal": 134, "prot": 24, "carb": 0},
+        "Maiale magro": {"kcal": 131, "prot": 20, "carb": 0},
+        "Cavallo": {"kcal": 111, "prot": 21, "carb": 0.5},
+        "Prosciutto crudo": {"kcal": 218,
