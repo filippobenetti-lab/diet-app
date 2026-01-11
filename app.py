@@ -1,10 +1,13 @@
 import streamlit as st
 import pandas as pd
 import altair as alt
-import re
 
 # --- CONFIGURAZIONE PAGINA ---
-st.set_page_config(page_title="La dieta di AGU", page_icon="🥑", layout="centered")
+st.set_page_config(page_title="La dieta di AGU", page_icon="🥑", layout="wide")
+
+# --- INIZIALIZZAZIONE SESSION STATE (Per la Lista Spesa) ---
+if 'shopping_list' not in st.session_state:
+    st.session_state.shopping_list = []
 
 # --- CSS PERSONALIZZATO ---
 st.markdown("""
@@ -30,37 +33,15 @@ st.markdown("""
     .meal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
     .meal-title { font-weight: 800; font-size: 1.1em; text-transform: uppercase; color: #333; }
     .meal-content { color: #424242; font-size: 0.95em; line-height: 1.5; }
-    
-    .kcal-badge {
-        background-color: rgba(255,255,255,0.6);
-        padding: 2px 8px;
-        border-radius: 10px;
-        font-size: 0.8em;
-        font-weight: bold;
-        color: #555;
-        border: 1px solid rgba(0,0,0,0.1);
-    }
-    
-    .daily-total {
-        background-color: #263238;
-        color: white;
-        padding: 20px;
-        border-radius: 15px;
-        margin-top: 20px;
-        text-align: center;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-    }
-    .total-kcal { font-size: 2.5em; font-weight: bold; color: #4CAF50; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- DATABASE DATI (AGGIORNATO CON VALORI PDF PAG 32-36) ---
-# Valori aggiornati rigorosamente secondo il documento "Adobe Scan 7 gen 2026.pdf"
+# --- DATABASE DATI (VALORI PDF PER IL CALCOLATORE) ---
 db_alimenti = {
     "Latte e Derivati": {
         "Latte intero": {"kcal": 62, "prot": 3.3, "carb": 4.7},
         "Latte parz. scremato": {"kcal": 41, "prot": 3.4, "carb": 5.0},
-        "Yogurt magro": {"kcal": 37, "prot": 3.5, "carb": 4.0}, # PDF pag 32
+        "Yogurt magro": {"kcal": 37, "prot": 3.5, "carb": 4.0},
         "Mozzarella": {"kcal": 244, "prot": 18, "carb": 2.0},
         "Parmigiano": {"kcal": 374, "prot": 33, "carb": 0.0},
         "Stracchino": {"kcal": 300, "prot": 15, "carb": 1.5},
@@ -75,27 +56,27 @@ db_alimenti = {
         "Pollo intero": {"kcal": 175, "prot": 18, "carb": 0},
         "Tacchino": {"kcal": 134, "prot": 24, "carb": 0},
         "Maiale magro": {"kcal": 131, "prot": 20, "carb": 0},
-        "Prosciutto crudo": {"kcal": 370, "prot": 26, "carb": 0}, # Valore PDF pag 33
-        "Prosciutto cotto": {"kcal": 412, "prot": 19, "carb": 0.9}, # Valore PDF pag 33 (Molto alto)
-        "Bresaola": {"kcal": 218, "prot": 32, "carb": 0}, # Indicato come "Crudo magro/Bresaola"
-        "Speck": {"kcal": 300, "prot": 28, "carb": 0.5}, # Stima (non presente in tabella, usato media)
+        "Prosciutto crudo": {"kcal": 370, "prot": 26, "carb": 0},
+        "Prosciutto cotto": {"kcal": 412, "prot": 19, "carb": 0.9},
+        "Bresaola": {"kcal": 218, "prot": 32, "carb": 0},
+        "Speck": {"kcal": 300, "prot": 28, "carb": 0.5},
         "Salsiccia": {"kcal": 334, "prot": 14, "carb": 0}
     },
     "Pesce": {
         "Merluzzo": {"kcal": 71, "prot": 17, "carb": 0},
         "Sogliola": {"kcal": 86, "prot": 16, "carb": 0},
         "Tonno fresco": {"kcal": 158, "prot": 21, "carb": 0},
-        "Tonno scatola (sgocc.)": {"kcal": 190, "prot": 25, "carb": 0}, # Valore PDF pag 34
+        "Tonno scatola": {"kcal": 190, "prot": 25, "carb": 0},
         "Orata/Branzino": {"kcal": 82, "prot": 18, "carb": 0},
         "Salmone": {"kcal": 185, "prot": 19, "carb": 0}, 
         "Trota": {"kcal": 96, "prot": 19, "carb": 0},
         "Gamberi": {"kcal": 71, "prot": 13, "carb": 2.9}
     },
     "Cereali e Carboidrati": {
-        "Pane comune": {"kcal": 260, "prot": 8, "carb": 50}, # PDF pag 35
+        "Pane comune": {"kcal": 260, "prot": 8, "carb": 50},
         "Pane integrale": {"kcal": 243, "prot": 9, "carb": 45},
-        "Pasta": {"kcal": 377, "prot": 11, "carb": 73}, # PDF pag 35
-        "Riso": {"kcal": 384, "prot": 7, "carb": 80}, # PDF pag 35
+        "Pasta": {"kcal": 377, "prot": 11, "carb": 73},
+        "Riso": {"kcal": 384, "prot": 7, "carb": 80},
         "Patate": {"kcal": 89, "prot": 2, "carb": 18},
         "Fette biscottate": {"kcal": 431, "prot": 11, "carb": 72},
         "Crackers": {"kcal": 464, "prot": 10, "carb": 75},
@@ -108,7 +89,7 @@ db_alimenti = {
         "Pomodori": {"kcal": 25, "prot": 1, "carb": 3.5},
         "Fagiolini": {"kcal": 19, "prot": 2, "carb": 2.5},
         "Spinaci": {"kcal": 32, "prot": 3.5, "carb": 3},
-        "Piselli freschi": {"kcal": 79, "prot": 6, "carb": 10}, # PDF pag 35
+        "Piselli freschi": {"kcal": 79, "prot": 6, "carb": 10},
         "Fagioli secchi": {"kcal": 324, "prot": 23, "carb": 47},
         "Lenticchie secche": {"kcal": 339, "prot": 25, "carb": 54},
         "Zucchine": {"kcal": 12, "prot": 1, "carb": 1.5},
@@ -120,8 +101,8 @@ db_alimenti = {
     },
     "Frutta e Dolci": {
         "Mela": {"kcal": 48, "prot": 0.2, "carb": 11},
-        "Banana": {"kcal": 70, "prot": 1, "carb": 16}, # PDF pag 36
-        "Arancia": {"kcal": 36, "prot": 0.7, "carb": 8}, # PDF pag 36
+        "Banana": {"kcal": 70, "prot": 1, "carb": 16},
+        "Arancia": {"kcal": 36, "prot": 0.7, "carb": 8},
         "Marmellata": {"kcal": 250, "prot": 0.5, "carb": 60},
         "Miele": {"kcal": 304, "prot": 0.6, "carb": 80},
         "Cioccolata spalmabile": {"kcal": 537, "prot": 6, "carb": 55},
@@ -165,91 +146,28 @@ menu_settimanali = {
     }
 }
 
-# --- FUNZIONI DI UTILITÀ ---
-def normalizza_key(k):
-    """Mappa nomi comuni alle chiavi del DB del PDF"""
-    k = k.lower()
-    mapping = {
-        "pasta": "Pasta", "riso": "Riso", "pane": "Pane comune", 
-        "olio": "Olio d'oliva", "parmigiano": "Parmigiano", "miele": "Miele",
-        "prosciutto cotto": "Prosciutto cotto", "prosciutto crudo": "Prosciutto crudo",
-        "speck": "Speck", "banana": "Banana", "mela": "Mela", "tonno": "Tonno scatola (sgocc.)",
-        "fette biscottate": "Fette biscottate", "biscotti": "Biscotti",
-        "pollo": "Pollo (petto)", "tacchino": "Tacchino", "manzo": "Manzo magro",
-        "vitello": "Vitello magro", "maiale": "Maiale magro", "merluzzo": "Merluzzo",
-        "orata": "Orata/Branzino", "branzino": "Orata/Branzino", "salmone": "Salmone",
-        "piselli": "Piselli freschi", "fagioli": "Fagioli secchi", "spinaci": "Spinaci",
-        "carote": "Carote", "zucchine": "Zucchine", "cavolfiore": "Cavolfiore",
-        "cioccolata": "Cioccolata spalmabile", "marmellata": "Marmellata",
-        "yogurt": "Yogurt magro", "cereali": "Cereali Special K",
-        "salame": "Salame", "salsiccia": "Salsiccia", "pizza": "Pizza",
-        "gnocchi": "Gnocchi"
-    }
-    for key, val in mapping.items():
-        if key in k: return val
-    return None
-
-def stima_calorie(descrizione_pasto):
-    """Estima le calorie da una stringa di testo con pesi PDF"""
-    tot_kcal = 0
-    items = descrizione_pasto.split(',')
-    
-    flat_db = {}
-    for cat in db_alimenti.values():
-        for k, v in cat.items():
-            flat_db[k] = v
-            
-    for item in items:
-        item = item.strip()
-        grams = 0
-        
-        # 1. Cerca Grammi (es. 120g)
-        match_g = re.search(r'(\d+)\s*g', item)
-        if match_g:
-            grams = int(match_g.group(1))
-        
-        # 2. Cerca Cucchiai/Cucchiaini (Regole PDF)
-        # 1 cucchiaio olio = 12g, 1 cucchiaino = 6g
-        if "cuc." in item or "cucchia" in item:
-            qta_match = re.search(r'(\d+)', item)
-            qta = int(qta_match.group(1)) if qta_match else 1
-            
-            if "olio" in item.lower() and "cuc.ni" in item.lower(): grams = qta * 6
-            elif "olio" in item.lower(): grams = qta * 12
-            elif "parmigiano" in item.lower(): grams = qta * 10
-            elif "miele" in item.lower() and "cuc.ni" in item.lower(): grams = qta * 6 
-            elif "marmellata" in item.lower() and "cuc.ni" in item.lower(): grams = qta * 6
-            elif "marmellata" in item.lower(): grams = qta * 15
-            else: grams = qta * 10 
-
-        # 3. Cerca Pezzi/Fette
-        match_pz = re.search(r'(\d+)\s*(pz|fet)', item)
-        if match_pz:
-            qta = int(match_pz.group(1))
-            if "biscotti" in item.lower(): grams = qta * 6
-            elif "fette biscottate" in item.lower(): grams = qta * 8
-            elif "prosciutto" in item.lower() or "speck" in item.lower() or "salame" in item.lower(): grams = qta * 15 
-            elif "cracker" in item.lower(): grams = qta * 25 
-            elif "banana" in item.lower(): grams = 110 # media
-            elif "mela" in item.lower(): grams = 160 
-            elif "yogurt" in item.lower(): grams = 125
-            else: grams = qta * 50 
-            
-        if grams == 0 and ("pasta" in item.lower() or "riso" in item.lower()): grams = 80
-        
-        found_key = normalizza_key(item)
-        if found_key and found_key in flat_db:
-             kcal_100 = flat_db[found_key]['kcal']
-             tot_kcal += (grams * kcal_100) / 100
-             
-    return tot_kcal
-
 # --- HEADER APP ---
 st.title("🥑 La dieta di AGU")
 st.markdown("**Il tuo assistente nutrizionale personale.**")
 
+# --- SIDEBAR: LISTA SPESA ---
+st.sidebar.title("🛒 Lista della Spesa")
+if st.session_state.shopping_list:
+    for i, item in enumerate(st.session_state.shopping_list):
+        st.sidebar.markdown(f"- {item}")
+    
+    col_btn1, col_btn2 = st.sidebar.columns(2)
+    if col_btn1.button("🗑️ Svuota", use_container_width=True):
+        st.session_state.shopping_list = []
+        st.rerun()
+    if col_btn2.button("📋 Copia", use_container_width=True):
+        text_list = "\n".join([f"- {item}" for item in st.session_state.shopping_list])
+        st.sidebar.code(text_list, language="text")
+else:
+    st.sidebar.info("La lista è vuota.")
+
 # --- NAVIGAZIONE A TABS ---
-tab1, tab2, tab3, tab4 = st.tabs(["📅 Menu", "⚖️ Sostituzioni", "🔍 Cerca", "📊 Analisi"])
+tab1, tab2, tab3, tab4 = st.tabs(["📅 Menu & Spesa", "⚖️ Sostituzioni", "🔍 Cerca", "📊 Analisi"])
 
 # --- TAB 1: MENU ---
 with tab1:
@@ -263,48 +181,48 @@ with tab1:
     
     if giorno in menu_settimanali[settimana]:
         pasti = menu_settimanali[settimana][giorno]
-        totale_giornaliero = 0
+        items_to_add = []
         
         icons = {
             "Colazione": "☕", "Spuntino": "🍎", "Pranzo": "🍝", 
             "Merenda": "🥨", "Cena": "🌙"
         }
         
-        for pasto, descrizione in pasti.items():
-            kcal_pasto = stima_calorie(descrizione)
-            totale_giornaliero += kcal_pasto
-            
-            icona = icons.get(pasto, "🍽️")
-            
-            css_class = "meal-card"
-            if "Colazione" in pasto: css_class += " type-colazione"
-            elif "Spuntino" in pasto or "Merenda" in pasto: css_class += " type-spuntino"
-            elif "Pranzo" in pasto: css_class += " type-pranzo"
-            elif "Cena" in pasto: css_class += " type-cena"
-            
-            badge_html = f'<div class="kcal-badge">{int(kcal_pasto)} kcal</div>' if kcal_pasto > 0 else ""
-            
-            html_content = f"""
-            <div class="{css_class}">
-                <div class="meal-header">
-                    <span class="meal-title">{icona} {pasto}</span>
-                    {badge_html}
+        # Form per selezionare gli ingredienti
+        with st.form("spesa_form"):
+            for pasto, descrizione in pasti.items():
+                icona = icons.get(pasto, "🍽️")
+                
+                css_class = "meal-card"
+                if "Colazione" in pasto: css_class += " type-colazione"
+                elif "Spuntino" in pasto or "Merenda" in pasto: css_class += " type-spuntino"
+                elif "Pranzo" in pasto: css_class += " type-pranzo"
+                elif "Cena" in pasto: css_class += " type-cena"
+                
+                html_content = f"""
+                <div class="{css_class}">
+                    <div class="meal-header">
+                        <span class="meal-title">{icona} {pasto}</span>
+                    </div>
+                    <div class="meal-content">{descrizione}</div>
                 </div>
-                <div class="meal-content">{descrizione}</div>
-            </div>
-            """
-            st.markdown(html_content, unsafe_allow_html=True)
+                """
+                st.markdown(html_content, unsafe_allow_html=True)
+                
+                # Checkbox per aggiungere alla spesa
+                if st.checkbox(f"Aggiungi {pasto} alla lista", key=f"chk_{pasto}"):
+                    items_to_add.append(f"{giorno} ({pasto}): {descrizione}")
+
+            st.markdown("")
+            submitted = st.form_submit_button("➕ Aggiungi selezionati alla Lista della Spesa", type="primary", use_container_width=True)
             
-        # BOX TOTALE
-        st.markdown(f"""
-        <div class="daily-total">
-            <div style="font-size: 0.9em; opacity: 0.8;">TOTALE GIORNALIERO</div>
-            <div class="total-kcal">{int(totale_giornaliero)} Kcal</div>
-            <div style="margin-top:10px; font-size:0.8em; color:#ccc;">
-                *Calcolo basato su pesi e conversioni del PDF
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+            if submitted:
+                if items_to_add:
+                    st.session_state.shopping_list.extend(items_to_add)
+                    st.success("Articoli aggiunti alla lista laterale! 🛒")
+                    st.rerun()
+                else:
+                    st.warning("Seleziona almeno un pasto per aggiungerlo.")
             
     else:
         st.error("Dati non disponibili.")
@@ -348,40 +266,19 @@ with tab2:
         st.markdown(f"<h2 style='text-align: center; color: #2e7d32;'>Mangia {int(quantita_nuova)}g di {cibo_sostituto}</h2>", unsafe_allow_html=True)
         st.caption(f"Sostituisce {quantita_originale}g di {cibo_originale} mantenendo {int(kcal_tot_orig)} Kcal.")
         
-        st.markdown("#### ⚖️ Bilancio Nutrizionale")
         mc1, mc2, mc3 = st.columns(3)
         with mc1:
             st.markdown("**Proteine**")
             st.progress(min(1.0, prot_tot_new / (max(prot_tot_orig, 1) * 2)))
             st.write(f"{int(prot_tot_orig)}g ➝ **{int(prot_tot_new)}g**")
-            if abs(diff_prot) > 5:
-                color = "red" if diff_prot < 0 else "orange"
-                icon = "🔻" if diff_prot < 0 else "🔺"
-                st.markdown(f":{color}[{icon} {int(diff_prot)}g]")
-            else:
-                st.markdown(":green[✅ Ok]")
-
         with mc2:
             st.markdown("**Carboidrati**")
             st.progress(min(1.0, carb_tot_new / (max(carb_tot_orig, 1) * 2)))
             st.write(f"{int(carb_tot_orig)}g ➝ **{int(carb_tot_new)}g**")
-            if abs(diff_carb) > 10:
-                color = "red" if diff_carb > 0 else "orange"
-                icon = "🔺" if diff_carb > 0 else "🔻"
-                st.markdown(f":{color}[{icon} {int(diff_carb)}g]")
-            else:
-                st.markdown(":green[✅ Ok]")
-                
         with mc3:
             st.markdown("**Grassi/Densità**")
             if quantita_nuova > quantita_originale * 1.5: st.info("Piatto voluminoso 🥗")
-            elif quantita_nuova < quantita_originale * 0.7: st.warning("Piatto piccolo 🍰")
             else: st.success("Volume simile 🍽️")
-
-        if diff_prot < -8:
-            st.markdown("""<div class="warning-box">⚠️ <b>Attenzione:</b> Stai perdendo proteine. Integra con albume o yogurt.</div>""", unsafe_allow_html=True)
-        if diff_carb > 15:
-            st.markdown("""<div class="warning-box">⚠️ <b>Attenzione:</b> Carboidrati in aumento. Riduci il pane.</div>""", unsafe_allow_html=True)
 
 # --- TAB 3: RICERCA ---
 with tab3:
@@ -427,4 +324,3 @@ with tab4:
     ).properties(height=400)
     
     st.altair_chart(chart, use_container_width=True)
-    st.caption("*Proteine e carboidrati in Kcal equivalenti (x4) per confronto visivo.")
