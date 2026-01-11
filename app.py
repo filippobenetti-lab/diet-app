@@ -1,11 +1,12 @@
 import streamlit as st
 import pandas as pd
 import altair as alt
+import re
 
 # --- CONFIGURAZIONE PAGINA ---
-st.set_page_config(page_title="La dieta di AGU", page_icon="🥑", layout="wide")
+st.set_page_config(page_title="La dieta di AGU", page_icon="🥑", layout="centered")
 
-# --- INIZIALIZZAZIONE SESSION STATE (Per la Lista Spesa) ---
+# --- INIZIALIZZAZIONE SESSION STATE ---
 if 'shopping_list' not in st.session_state:
     st.session_state.shopping_list = []
 
@@ -33,10 +34,17 @@ st.markdown("""
     .meal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
     .meal-title { font-weight: 800; font-size: 1.1em; text-transform: uppercase; color: #333; }
     .meal-content { color: #424242; font-size: 0.95em; line-height: 1.5; }
+    
+    /* Stile Lista Spesa */
+    .shopping-item {
+        padding: 10px;
+        border-bottom: 1px solid #eee;
+        font-size: 1.1em;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# --- DATABASE DATI (VALORI PDF PER IL CALCOLATORE) ---
+# --- DATABASE DATI ---
 db_alimenti = {
     "Latte e Derivati": {
         "Latte intero": {"kcal": 62, "prot": 3.3, "carb": 4.7},
@@ -150,24 +158,9 @@ menu_settimanali = {
 st.title("🥑 La dieta di AGU")
 st.markdown("**Il tuo assistente nutrizionale personale.**")
 
-# --- SIDEBAR: LISTA SPESA ---
-st.sidebar.title("🛒 Lista della Spesa")
-if st.session_state.shopping_list:
-    for i, item in enumerate(st.session_state.shopping_list):
-        st.sidebar.markdown(f"- {item}")
-    
-    col_btn1, col_btn2 = st.sidebar.columns(2)
-    if col_btn1.button("🗑️ Svuota", use_container_width=True):
-        st.session_state.shopping_list = []
-        st.rerun()
-    if col_btn2.button("📋 Copia", use_container_width=True):
-        text_list = "\n".join([f"- {item}" for item in st.session_state.shopping_list])
-        st.sidebar.code(text_list, language="text")
-else:
-    st.sidebar.info("La lista è vuota.")
-
 # --- NAVIGAZIONE A TABS ---
-tab1, tab2, tab3, tab4 = st.tabs(["📅 Menu & Spesa", "⚖️ Sostituzioni", "🔍 Cerca", "📊 Analisi"])
+# Aggiunta la TAB "Lista Spesa" in fondo
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["📅 Menu", "⚖️ Sostituzioni", "🔍 Cerca", "📊 Analisi", "🛒 Lista Spesa"])
 
 # --- TAB 1: MENU ---
 with tab1:
@@ -219,8 +212,8 @@ with tab1:
             if submitted:
                 if items_to_add:
                     st.session_state.shopping_list.extend(items_to_add)
-                    st.success("Articoli aggiunti alla lista laterale! 🛒")
-                    st.rerun()
+                    # Messaggio di conferma che rimanda alla Tab 5
+                    st.success("Articoli aggiunti! Vai alla scheda 'Lista Spesa' per vederli. 🛒")
                 else:
                     st.warning("Seleziona almeno un pasto per aggiungerlo.")
             
@@ -324,3 +317,34 @@ with tab4:
     ).properties(height=400)
     
     st.altair_chart(chart, use_container_width=True)
+
+# --- TAB 5: LISTA SPESA (NUOVA POSIZIONE) ---
+with tab5:
+    st.header("🛒 La tua Lista della Spesa")
+    st.info("Qui trovi i piatti che hai selezionato dalla scheda 'Menu'.")
+    
+    if st.session_state.shopping_list:
+        # Mostra la lista con checkbox (per spuntare al supermercato)
+        for i, item in enumerate(st.session_state.shopping_list):
+            st.checkbox(item, key=f"shop_item_{i}")
+        
+        st.divider()
+        col_btn1, col_btn2 = st.columns(2)
+        
+        # Bottone per pulire
+        if col_btn1.button("🗑️ Svuota Lista", type="secondary", use_container_width=True):
+            st.session_state.shopping_list = []
+            st.rerun()
+            
+        # Bottone per copiare (simulato con codice)
+        if col_btn2.button("📋 Mostra formato testo (Copia)", type="primary", use_container_width=True):
+            text_list = "\n".join([f"- {item}" for item in st.session_state.shopping_list])
+            st.code(text_list, language="text")
+            
+    else:
+        st.markdown("""
+        <div style="text-align: center; padding: 50px; color: #aaa;">
+            La lista è vuota.<br>
+            Vai nella scheda <b>Menu</b> e aggiungi quello che vuoi mangiare!
+        </div>
+        """, unsafe_allow_html=True)
